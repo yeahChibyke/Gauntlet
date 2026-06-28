@@ -2,55 +2,70 @@ package server
 
 import (
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/yeahChibyke/Gauntlet/internal/protocol/responses"
+	"github.com/yeahChibyke/Gauntlet/internal/service"
 )
 
 // NewHTTPServer creates and configures the Gauntlet HTTP server.
 func NewHTTPServer(addr string, logger *slog.Logger) *http.Server {
+	responseService := service.NewResponseService()
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/v1/responses", func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req responses.Request
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			logger.Error(
-				"failed to read request body",
+				"failed to decode request",
 				"error", err,
 			)
 
-			http.Error(
+			writeError(
 				w,
-				"failed to read request body",
-				http.StatusInternalServerError,
+				http.StatusBadRequest,
+				"invalid_request",
+				"failed to decode request body",
 			)
-
 			return
 		}
-		defer r.Body.Close()
+
+		canonicalReq, err := responseService.Handle(&req)
+		if err != nil {
+			logger.Error(
+				"failed to translate request",
+				"error", err,
+			)
+
+			writeError(
+				w,
+				http.StatusBadRequest,
+				"translation_error",
+				err.Error(),
+			)
+			return
+		}
 
 		logger.Info(
-			"incoming request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"query", r.URL.RawQuery,
-			"remote_addr", r.RemoteAddr,
-			"content_type", r.Header.Get("Content-Type"),
-			"authorization_present", r.Header.Get("Authorization") != "",
-			"user_agent", r.Header.Get("User-Agent"),
-			"body", string(body),
+			"canonical request",
+			"request", canonicalReq,
 		)
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotImplemented)
-
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"error": map[string]any{
-				"message": "Gauntlet translator not implemented",
-				"type":    "not_implemented",
-			},
-		})
+		writeError(
+			w,
+			http.StatusNotImplemented,
+			"not_implemented",
+			"Gauntlet translator not implemented",
+		)
 	})
 
 	return &http.Server{
@@ -61,4 +76,21 @@ func NewHTTPServer(addr string, logger *slog.Logger) *http.Server {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+}
+
+func writeError(
+	w http.ResponseWriter,
+	status int,
+	errType string,
+	message string,
+) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"error": map[string]any{
+			"type":    errType,
+			"message": message,
+		},
+	})
 }
