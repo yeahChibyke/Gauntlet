@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -12,19 +13,6 @@ func NewHTTPServer(addr string, logger *slog.Logger) *http.Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/v1/responses", func(w http.ResponseWriter, r *http.Request) {
-		logger.Info(
-			"incoming request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"query", r.URL.RawQuery,
-			"remote_addr", r.RemoteAddr,
-		)
-
-		logger.Info(
-			"request headers",
-			"headers", r.Header,
-		)
-
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			logger.Error(
@@ -37,20 +25,32 @@ func NewHTTPServer(addr string, logger *slog.Logger) *http.Server {
 				"failed to read request body",
 				http.StatusInternalServerError,
 			)
+
 			return
 		}
 		defer r.Body.Close()
 
 		logger.Info(
-			"request body",
+			"incoming request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"query", r.URL.RawQuery,
+			"remote_addr", r.RemoteAddr,
+			"content_type", r.Header.Get("Content-Type"),
+			"authorization_present", r.Header.Get("Authorization") != "",
+			"user_agent", r.Header.Get("User-Agent"),
 			"body", string(body),
 		)
 
-		w.Header().Set("Content-Type", "text/plain")
-
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotImplemented)
 
-		_, _ = w.Write([]byte("not implemented\n"))
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
+				"message": "Gauntlet translator not implemented",
+				"type":    "not_implemented",
+			},
+		})
 	})
 
 	return &http.Server{
