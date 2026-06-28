@@ -9,7 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/yeahChibyke/Gauntlet/internal/provider/nvidia"
 	"github.com/yeahChibyke/Gauntlet/internal/server"
+	"github.com/yeahChibyke/Gauntlet/internal/service"
 )
 
 func main() {
@@ -19,7 +21,24 @@ func main() {
 		}),
 	)
 
-	srv := server.NewHTTPServer(":8080", logger)
+	nvidiaProvider, err := nvidia.NewProvider()
+	if err != nil {
+		logger.Error(
+			"failed to initialize NVIDIA provider",
+			"error", err,
+		)
+		os.Exit(1)
+	}
+
+	responseService := service.NewResponseService(
+		nvidiaProvider,
+	)
+
+	srv := server.NewHTTPServer(
+		":8080",
+		logger,
+		responseService,
+	)
 
 	go func() {
 		logger.Info(
@@ -36,7 +55,6 @@ func main() {
 		}
 	}()
 
-	// Wait for Ctrl+C (SIGINT) or SIGTERM.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 

@@ -11,20 +11,27 @@ import (
 )
 
 // NewHTTPServer creates and configures the Gauntlet HTTP server.
-func NewHTTPServer(addr string, logger *slog.Logger) *http.Server {
-	responseService := service.NewResponseService()
+func NewHTTPServer(
+	addr string,
+	logger *slog.Logger,
+	responseService *service.ResponseService,
+) *http.Server {
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/v1/responses", func(w http.ResponseWriter, r *http.Request) {
+
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
+		defer r.Body.Close()
+
 		var req responses.Request
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+
 			logger.Error(
 				"failed to decode request",
 				"error", err,
@@ -36,36 +43,40 @@ func NewHTTPServer(addr string, logger *slog.Logger) *http.Server {
 				"invalid_request",
 				"failed to decode request body",
 			)
+
 			return
 		}
 
-		canonicalReq, err := responseService.Handle(&req)
+		resp, err := responseService.Handle(
+			r.Context(),
+			&req,
+		)
 		if err != nil {
+
 			logger.Error(
-				"failed to translate request",
+				"request failed",
 				"error", err,
 			)
 
 			writeError(
 				w,
 				http.StatusBadRequest,
-				"translation_error",
+				"provider_error",
 				err.Error(),
 			)
+
 			return
 		}
 
-		logger.Info(
-			"canonical request",
-			"request", canonicalReq,
-		)
+		w.Header().Set("Content-Type", "application/json")
 
-		writeError(
-			w,
-			http.StatusNotImplemented,
-			"not_implemented",
-			"Gauntlet translator not implemented",
-		)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+
+			logger.Error(
+				"failed to encode response",
+				"error", err,
+			)
+		}
 	})
 
 	return &http.Server{
@@ -84,6 +95,7 @@ func writeError(
 	errType string,
 	message string,
 ) {
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 
