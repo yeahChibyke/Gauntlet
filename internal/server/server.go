@@ -11,7 +11,7 @@ import (
 func NewHTTPServer(addr string, logger *slog.Logger) *http.Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/v1/responses", func(w http.ResponseWriter, r *http.Request) {
 		logger.Info(
 			"incoming request",
 			"method", r.Method,
