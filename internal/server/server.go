@@ -23,6 +23,8 @@ func NewHTTPServer(
 
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("/v1/models", handleModels)
+
 	mux.HandleFunc("/v1/responses", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -93,6 +95,10 @@ func NewHTTPServer(
 			w.Header().Set("Cache-Control", "no-cache")
 			w.Header().Set("Connection", "keep-alive")
 
+			if err := writeResponseCreated(w); err != nil {
+				return
+			}
+
 			for {
 
 				canonicalResp, ok, err := stream.Next(r.Context())
@@ -108,7 +114,7 @@ func NewHTTPServer(
 					break
 				}
 
-				if err := writeStreamEvent(
+				if err := writeResponseDelta(
 					w,
 					translate.ToResponses(canonicalResp),
 				); err != nil {
