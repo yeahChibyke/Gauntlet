@@ -23,3 +23,13 @@ type Choice struct {
 	Index   int     `json:"index"`
 	Message Message `json:"message"`
 }
+
+type ErrorResponse struct {
+	Error Error `json:"error"`
+}
+
+type Error struct {
+	Message string `json:"message"`
+	Type    string `json:"type,omitempty"`
+	Code    string `json:"code,omitempty"`
+}

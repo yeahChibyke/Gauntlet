@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/yeahChibyke/Gauntlet/internal/config"
+	"github.com/yeahChibyke/Gauntlet/internal/provider"
 )
 
 type Client struct {
@@ -65,8 +66,27 @@ func (c *Client) ChatCompletion(
 
 	var out ChatCompletionResponse
 
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, err
+	if resp.StatusCode >= 300 {
+
+		var providerErr ErrorResponse
+
+		if err := json.NewDecoder(resp.Body).Decode(&providerErr); err == nil &&
+			providerErr.Error.Message != "" {
+
+			return nil, &provider.Error{
+				Provider:  "nvidia",
+				Status:    resp.StatusCode,
+				Message:   providerErr.Error.Message,
+				Retryable: resp.StatusCode >= 500,
+			}
+		}
+
+		return nil, &provider.Error{
+			Provider:  "nvidia",
+			Status:    resp.StatusCode,
+			Message:   resp.Status,
+			Retryable: resp.StatusCode >= 500,
+		}
 	}
 
 	return &out, nil
