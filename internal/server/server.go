@@ -11,6 +11,7 @@ import (
 	"github.com/yeahChibyke/Gauntlet/internal/protocol/responses"
 	"github.com/yeahChibyke/Gauntlet/internal/provider"
 	"github.com/yeahChibyke/Gauntlet/internal/service"
+	"github.com/yeahChibyke/Gauntlet/internal/translate"
 )
 
 // NewHTTPServer creates and configures the Gauntlet HTTP server.
@@ -48,6 +49,75 @@ func NewHTTPServer(
 				"invalid_request",
 				"failed to decode request body",
 			)
+			return
+		}
+
+		if req.Stream {
+
+			stream, err := responseService.HandleStream(
+				r.Context(),
+				&req,
+			)
+			if err != nil {
+
+				reqLogger.Error(
+					"stream request failed",
+					"error", err,
+				)
+
+				var providerErr *provider.Error
+
+				if errors.As(err, &providerErr) {
+					writeError(
+						w,
+						providerErr.Status,
+						"provider_error",
+						providerErr.Message,
+					)
+					return
+				}
+
+				writeError(
+					w,
+					http.StatusInternalServerError,
+					"internal_error",
+					"internal server error",
+				)
+
+				return
+			}
+
+			defer stream.Close()
+
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Header().Set("Connection", "keep-alive")
+
+			for {
+
+				canonicalResp, ok, err := stream.Next(r.Context())
+				if err != nil {
+					reqLogger.Error(
+						"stream failed",
+						"error", err,
+					)
+					return
+				}
+
+				if !ok {
+					break
+				}
+
+				if err := writeStreamEvent(
+					w,
+					translate.ToResponses(canonicalResp),
+				); err != nil {
+					return
+				}
+			}
+
+			_ = writeStreamDone(w)
+
 			return
 		}
 
