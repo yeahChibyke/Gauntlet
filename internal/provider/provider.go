@@ -13,4 +13,9 @@ type Provider interface {
 		ctx context.Context,
 		req *canonical.Request,
 	) (*canonical.Response, error)
+
+	ResponsesStream(
+		ctx context.Context,
+		req *canonical.Request,
+	) (StreamReader, error)
 }

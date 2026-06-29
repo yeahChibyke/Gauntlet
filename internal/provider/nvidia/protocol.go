@@ -33,3 +33,19 @@ type Error struct {
 	Type    string `json:"type,omitempty"`
 	Code    string `json:"code,omitempty"`
 }
+
+type StreamChoice struct {
+	Index int           `json:"index"`
+	Delta StreamMessage `json:"delta"`
+}
+
+type StreamMessage struct {
+	Role    string `json:"role,omitempty"`
+	Content string `json:"content,omitempty"`
+}
+
+type ChatCompletionChunk struct {
+	ID      string         `json:"id"`
+	Model   string         `json:"model"`
+	Choices []StreamChoice `json:"choices"`
+}

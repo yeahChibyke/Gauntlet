@@ -45,3 +45,19 @@ func (s *ResponseService) Handle(
 
 	return translate.ToResponses(canonicalResp), nil
 }
+
+func (s *ResponseService) HandleStream(
+	ctx context.Context,
+	req *responses.Request,
+) (provider.StreamReader, error) {
+
+	canonicalReq, err := req.ToCanonical()
+	if err != nil {
+		return nil, err
+	}
+
+	return s.provider.ResponsesStream(
+		ctx,
+		canonicalReq,
+	)
+}

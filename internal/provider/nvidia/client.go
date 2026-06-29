@@ -91,3 +91,52 @@ func (c *Client) ChatCompletion(
 
 	return &out, nil
 }
+
+func (c *Client) ChatCompletionStream(
+	ctx context.Context,
+	req *ChatCompletionRequest,
+) (*StreamReader, error) {
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		c.baseURL+"/chat/completions",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq.Header.Set(
+		"Authorization",
+		"Bearer "+c.apiKey,
+	)
+
+	httpReq.Header.Set(
+		"Content-Type",
+		"application/json",
+	)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+
+		return nil, &provider.Error{
+			Provider:  "nvidia",
+			Status:    resp.StatusCode,
+			Message:   resp.Status,
+			Retryable: resp.StatusCode >= 500,
+		}
+	}
+
+	return NewStreamReader(resp.Body), nil
+}
