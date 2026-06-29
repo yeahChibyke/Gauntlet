@@ -6,12 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"time"
-)
 
-const (
-	defaultBaseURL = "https://integrate.api.nvidia.com/v1"
+	"github.com/yeahChibyke/Gauntlet/internal/config"
 )
 
 type Client struct {
@@ -20,17 +16,16 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func New() (*Client, error) {
-	apiKey := os.Getenv("NVIDIA_API_KEY")
-	if apiKey == "" {
-		return nil, fmt.Errorf("NVIDIA_API_KEY is not set")
+func New(cfg *config.Config) (*Client, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config is nil")
 	}
 
 	return &Client{
-		baseURL: defaultBaseURL,
-		apiKey:  apiKey,
+		baseURL: cfg.NVIDIA.BaseURL,
+		apiKey:  cfg.NVIDIA.APIKey,
 		httpClient: &http.Client{
-			Timeout: 120 * time.Second,
+			Timeout: cfg.HTTP.Timeout,
 		},
 	}, nil
 }

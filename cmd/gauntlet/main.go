@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/yeahChibyke/Gauntlet/internal/config"
 	"github.com/yeahChibyke/Gauntlet/internal/provider/nvidia"
 	"github.com/yeahChibyke/Gauntlet/internal/server"
 	"github.com/yeahChibyke/Gauntlet/internal/service"
@@ -21,7 +22,16 @@ func main() {
 		}),
 	)
 
-	nvidiaProvider, err := nvidia.NewProvider()
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Error(
+			"failed to load configuration",
+			"error", err,
+		)
+		os.Exit(1)
+	}
+
+	provider, err := nvidia.NewProvider(cfg)
 	if err != nil {
 		logger.Error(
 			"failed to initialize NVIDIA provider",
@@ -30,12 +40,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	responseService := service.NewResponseService(
-		nvidiaProvider,
-	)
+	responseService := service.NewResponseService(provider)
 
 	srv := server.NewHTTPServer(
-		":8080",
+		cfg.HTTP.Address,
 		logger,
 		responseService,
 	)

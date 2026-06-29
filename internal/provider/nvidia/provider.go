@@ -3,18 +3,16 @@ package nvidia
 import (
 	"context"
 
+	"github.com/yeahChibyke/Gauntlet/internal/config"
 	"github.com/yeahChibyke/Gauntlet/internal/protocol/canonical"
 )
 
-// Provider implements the generic provider.Provider interface
-// using NVIDIA NIM.
 type Provider struct {
 	client *Client
 }
 
-// NewProvider constructs an NVIDIA provider.
-func NewProvider() (*Provider, error) {
-	client, err := New()
+func NewProvider(cfg *config.Config) (*Provider, error) {
+	client, err := New(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -24,7 +22,6 @@ func NewProvider() (*Provider, error) {
 	}, nil
 }
 
-// Responses executes a canonical request against NVIDIA NIM.
 func (p *Provider) Responses(
 	ctx context.Context,
 	req *canonical.Request,
@@ -32,10 +29,10 @@ func (p *Provider) Responses(
 
 	nvidiaReq := ToChatCompletionRequest(req)
 
-	resp, err := p.client.ChatCompletion(ctx, nvidiaReq)
+	nvidiaResp, err := p.client.ChatCompletion(ctx, nvidiaReq)
 	if err != nil {
 		return nil, err
 	}
 
-	return FromChatCompletionResponse(resp), nil
+	return FromChatCompletionResponse(nvidiaResp), nil
 }
